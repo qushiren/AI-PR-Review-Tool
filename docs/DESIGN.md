@@ -1,77 +1,77 @@
-# Design Notes
+# 设计说明
 
-## User Needs
+## 用户需求
 
-Developers reviewing PRs usually need a fast answer to four questions:
+开发者在评审 PR 时，通常需要快速回答四个问题：
 
-1. What changed, and why does it matter?
-2. Which files deserve human attention first?
-3. Are there likely bugs, security issues, or maintainability risks?
-4. What concrete comments could I leave without rewriting the PR myself?
+1. 变更了什么，为什么重要？
+2. 哪些文件最值得优先人工关注？
+3. 是否可能存在 bug、安全问题或可维护性风险？
+4. 在不替作者重写 PR 的前提下，我可以留下哪些具体评论？
 
-This tool is designed around that workflow. It produces a concise summary first, then ranks risks and suggestions by severity and confidence. It avoids pretending every finding is certain; each suggestion carries evidence and confidence so reviewers can decide quickly.
+本工具围绕这个工作流设计。它会先生成简洁摘要，再根据严重级别和置信度对风险与建议排序。工具不会假装每个发现都是绝对确定的；每条建议都会附带证据和置信度，方便评审者快速判断。
 
-## Architecture
+## 架构
 
 ```mermaid
 flowchart LR
-  U["User / CLI / Browser"] --> API["FastAPI or Typer CLI"]
-  API --> GH["GitHub Client"]
-  GH --> PR["PR metadata, files, patches, comments"]
-  PR --> CTX["Context Builder"]
-  CTX --> HEU["Deterministic Risk Rules"]
-  CTX --> LLM["Optional OpenAI Review"]
-  HEU --> AGG["Finding Aggregator"]
+  U["用户 / CLI / 浏览器"] --> API["FastAPI 或 Typer CLI"]
+  API --> GH["GitHub 客户端"]
+  GH --> PR["PR 元数据、文件、patch、评论"]
+  PR --> CTX["上下文构建器"]
+  CTX --> HEU["确定性风险规则"]
+  CTX --> LLM["可选 OpenAI 评审"]
+  HEU --> AGG["发现聚合器"]
   LLM --> AGG
-  AGG --> OUT["Summary, risks, suggestions, optional PR comment"]
+  AGG --> OUT["摘要、风险、建议、可选 PR 评论"]
 ```
 
-The deterministic analyzer is always available and fast. The optional model pass improves context understanding for larger or more nuanced changes.
+确定性分析器始终可用，并且响应速度快。可选的模型分析阶段用于提升对大型或更复杂变更的上下文理解能力。
 
-## Model Choice
+## 模型选择
 
-Default model: `gpt-4.1-mini`.
+默认模型：`gpt-4.1-mini`。
 
-Reasons:
+选择原因：
 
-- Low latency and cost for PR-sized review requests.
-- Strong enough instruction following for structured JSON output.
-- Good fit for a second-pass reviewer after deterministic rules flag concrete evidence.
+- 对 PR 规模的评审请求来说，延迟和成本较低。
+- 对结构化 JSON 输出具备足够强的指令遵循能力。
+- 适合作为确定性规则标记具体证据之后的二次评审者。
 
-For very large or high-risk repositories, a future deployment can route security-critical PRs to a stronger model and keep routine PRs on the default model.
+对于非常大型或高风险仓库，未来部署时可以将安全关键 PR 路由到更强模型，同时让日常 PR 继续使用默认模型。
 
-## Context Acquisition
+## 上下文获取
 
-The tool gathers context from GitHub in this order:
+工具会按以下顺序从 GitHub 获取上下文：
 
-1. PR metadata: title, body, author, base/head refs.
-2. Changed files: status, additions, deletions, patch hunks.
-3. Existing PR comments: used to avoid repeating already-discussed feedback.
-4. Optional repository file contents can be added later through the `ContextProvider` boundary.
+1. PR 元数据：标题、描述、作者、base/head 引用。
+2. 变更文件：状态、增加行数、删除行数、patch hunk。
+3. 已有 PR 评论：用于避免重复已经讨论过的反馈。
+4. 后续可以通过 `ContextProvider` 边界加入可选的仓库文件内容。
 
-Patch text is budgeted before analysis. The context builder keeps the most review-useful signals: filenames, file status, hunk headers, changed lines, and local line numbers.
+在分析前会对 patch 文本进行预算控制。上下文构建器会保留对评审最有帮助的信号：文件名、文件状态、hunk 头、变更行和本地行号。
 
-## False Positive And False Negative Control
+## 误报与漏报控制
 
-The tool reduces noisy comments through:
+工具通过以下方式减少噪声评论：
 
-- Confidence scores per finding.
-- Severity and category labels instead of a flat list.
-- Duplicate suppression by fingerprint.
-- Ignoring generated and lock files for most style-oriented rules.
-- Emitting evidence snippets so humans can reject weak findings quickly.
+- 为每条发现提供置信度分数。
+- 使用严重级别和类别标签，而不是一份无差别列表。
+- 通过 fingerprint 抑制重复发现。
+- 对多数偏风格类规则忽略生成文件和 lock 文件。
+- 输出证据片段，让人工评审者可以快速拒绝较弱发现。
 
-It reduces missed issues by combining broad deterministic rules with optional model reasoning. Deterministic rules catch common high-signal patterns, while the model can connect intent across files.
+工具通过结合广覆盖的确定性规则和可选模型推理来减少漏报。确定性规则用于捕获常见的高信号模式，模型则可以跨文件理解变更意图。
 
-## Speed
+## 速度
 
-The GitHub client uses async HTTP. The analyzer is local and linear in changed lines. Model input is compacted before any OpenAI call to avoid sending entire repositories.
+GitHub 客户端使用异步 HTTP。分析器在本地运行，复杂度与变更行数线性相关。任何 OpenAI 调用之前都会压缩模型输入，避免发送整个仓库。
 
-## Future Extensions
+## 未来扩展
 
-- Inline review comments mapped to exact diff positions.
-- Repository-wide semantic search for changed symbols.
-- Custom organization policy packs.
-- SARIF export for security dashboards.
-- CI integration that fails only on high-confidence critical findings.
-- Reviewer memory that learns accepted and dismissed suggestions over time.
+- 将内联 Review 评论映射到精确 diff 位置。
+- 对变更符号进行仓库级语义搜索。
+- 支持自定义组织策略包。
+- 导出 SARIF，接入安全仪表盘。
+- 集成 CI，仅在高置信度的严重问题上失败。
+- 引入评审者记忆，学习已接受和已忽略的建议。

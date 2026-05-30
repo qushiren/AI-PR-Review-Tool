@@ -1,17 +1,17 @@
-# AI PR Review Tool
+# AI PR 代码评审工具
 
-AI PR Review Tool helps developers review GitHub Pull Requests faster and more consistently. It fetches a PR, parses the changed files, summarizes intent, identifies risky code, and generates review suggestions that can be read locally or posted back to GitHub.
+AI PR 代码评审工具帮助开发者更快、更稳定地完成 GitHub Pull Request 评审。它会获取指定 PR，解析代码变更，总结变更意图，识别风险代码，并生成可以在本地查看或回写到 GitHub 的 Review 建议。
 
-## What It Supports
+## 支持能力
 
-- PR change summary grouped by file and risk area.
-- Risk code detection for secrets, SQL injection patterns, auth-sensitive changes, broad exception handling, dangerous shell execution, dependency changes, generated files, and large diffs.
-- Review suggestions with severity, confidence, affected file, affected line, evidence, and remediation.
-- Optional OpenAI model analysis that receives a compact repository-aware context bundle.
-- FastAPI service, browser UI, and CLI workflow.
-- Optional posting of a Markdown review comment to the PR conversation.
+- 按文件和风险领域汇总 PR 变更。
+- 识别密钥泄露、SQL 注入模式、鉴权相关改动、宽泛异常捕获、危险命令执行、依赖变更、生成文件和大规模 diff 等风险。
+- 生成带有严重级别、置信度、影响文件、影响行号、证据和修复建议的 Review 建议。
+- 可选 OpenAI 模型分析，并向模型提供紧凑的、包含仓库上下文的变更信息包。
+- 提供 FastAPI 服务、浏览器 UI 和 CLI 工作流。
+- 可选将 Markdown 格式的 Review 评论发布到 PR 会话中。
 
-## Quick Start
+## 快速开始
 
 ```bash
 python -m venv .venv
@@ -20,42 +20,42 @@ pip install -e ".[dev]"
 copy .env.example .env
 ```
 
-Set `GITHUB_TOKEN` in `.env`. `OPENAI_API_KEY` is optional; without it the tool runs the deterministic local analyzer.
+在 `.env` 中设置 `GITHUB_TOKEN`。`OPENAI_API_KEY` 是可选项；如果未配置，工具会运行确定性的本地分析器。
 
-Run the CLI:
+运行 CLI：
 
 ```bash
 ai-pr-review review https://github.com/owner/repo/pull/123
 ```
 
-Run the Web API and UI:
+运行 Web API 和 UI：
 
 ```bash
 uvicorn ai_pr_review_tool.api:app --reload
 ```
 
-Open `http://127.0.0.1:8000`.
+打开 `http://127.0.0.1:8000`。
 
-Post a PR comment:
+发布 PR 评论：
 
 ```bash
 ai-pr-review review https://github.com/owner/repo/pull/123 --post-comment
 ```
 
-## Configuration
+## 配置
 
-| Variable | Required | Description |
+| 变量 | 是否必需 | 说明 |
 | --- | --- | --- |
-| `GITHUB_TOKEN` | Yes | GitHub token with read access to the repo. Add write access to post comments. |
-| `OPENAI_API_KEY` | No | Enables model-assisted review. |
-| `OPENAI_MODEL` | No | Defaults to `gpt-4.1-mini`. |
-| `AI_REVIEW_MAX_PATCH_CHARS` | No | Maximum patch budget sent into analysis. |
+| `GITHUB_TOKEN` | 是 | 具备仓库读取权限的 GitHub token。若要发布评论，需要增加写权限。 |
+| `OPENAI_API_KEY` | 否 | 启用模型辅助评审。 |
+| `OPENAI_MODEL` | 否 | 默认值为 `gpt-4.1-mini`。 |
+| `AI_REVIEW_MAX_PATCH_CHARS` | 否 | 发送给分析流程的最大 patch 字符预算。 |
 
-## Design Notes
+## 设计说明
 
-See [docs/DESIGN.md](docs/DESIGN.md) for model choice, context gathering, false-positive control, speed decisions, and extension roadmap.
+关于模型选择、上下文获取、误报控制、速度取舍和扩展路线，请查看 [docs/DESIGN.md](docs/DESIGN.md)。
 
-## Development
+## 开发
 
 ```bash
 pytest
